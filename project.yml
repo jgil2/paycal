@@ -3,7 +3,8 @@ options:
   bundleIdPrefix: com.example
   deploymentTarget:
     iOS: "17.0"
-  xcodeVersion: "15.0"
+  xcodeVersion: "15.4"
+  objectVersion: 54
 
 settingGroups:
   App:
