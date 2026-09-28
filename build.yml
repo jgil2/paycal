@@ -25,6 +25,11 @@ jobs:
       - name: Generate Xcode Project
         run: xcodegen generate
 
+      - name: Debug versions
+        run: |
+          xcodebuild -version
+          grep objectVersion PayCal.xcodeproj/project.pbxproj
+
       - name: Build App with xcodebuild
         run: |
           xcodebuild build \
