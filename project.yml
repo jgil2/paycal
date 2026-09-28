@@ -1,0 +1,29 @@
+name: PayCal
+options:
+  bundleIdPrefix: com.example
+  deploymentTarget:
+    iOS: "17.0"
+  xcodeVersion: "15.0"
+  generateEmptyDirectories: true
+
+targets:
+  PayCal:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: PayCal
+    settings:
+      groups:
+        - App
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.paycal
+        INFOPLIST_KEY_UILaunchScreen_Generation: true
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: true
+        ENABLE_PREVIEWS: YES
+        SWIFT_VERSION: "5.9"
+        CODE_SIGNING_REQUIRED: NO
+        CODE_SIGN_IDENTITY: ""
+    frameworks:
+      - framework: SwiftData.framework
+      - framework: UserNotifications.framework
