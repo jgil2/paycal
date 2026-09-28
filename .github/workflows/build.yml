@@ -25,8 +25,12 @@ jobs:
       - name: Generate Xcode Project
         run: xcodegen generate
 
+      - name: Install xcbeautify
+        run: brew install xcbeautify
+
       - name: Build App with xcodebuild
         run: |
+          set -o pipefail
           xcodebuild build \
             -project PayCal.xcodeproj \
             -scheme PayCal \
@@ -34,7 +38,7 @@ jobs:
             -configuration Release \
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO
+            CODE_SIGNING_REQUIRED=NO 2>&1 | xcbeautify
 
       - name: Package Payload into Unsigned IPA
         run: |
