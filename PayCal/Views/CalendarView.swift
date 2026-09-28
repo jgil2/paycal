@@ -35,9 +35,9 @@ struct CalendarView: View {
                             .foregroundColor(.secondary)
                     }
 
-                    ForEach(days, id: \.self) { date in
+                    ForEach(Array(days.enumerated()), id: \.offset) { _, date in
                         if let date = date {
-                            DayCell(date: date, isSelected: Calendar.current.isDate(date, inSameDayAs: selectedDate), hasItems: hasItemsOn(date: date)) {
+                            DayCell(date: date, isSelected: Calendar.current.isDate(date, inSameDayAs: selectedDate), hasItems: hasItemsOn(date)) {
                                 selectedDate = date
                             }
                         } else {
@@ -84,8 +84,7 @@ struct CalendarView: View {
 
     private func daysInMonth() -> [Date?] {
         let calendar = Calendar.current
-        guard let monthInterval = calendar.dateInterval(of: .month, for: currentMonth),
-              let firstDay = calendar.date(from: calendar.dateComponents([.year, .month], from: currentMonth)) else { return [] }
+        guard let firstDay = calendar.date(from: calendar.dateComponents([.year, .month], from: currentMonth)) else { return [] }
 
         let firstWeekday = calendar.component(.weekday, from: firstDay)
         let totalDays = calendar.range(of: .day, in: .month, for: currentMonth)?.count ?? 0
