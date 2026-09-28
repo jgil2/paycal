@@ -1,12 +1,24 @@
 import Foundation
 import SwiftData
 
+// --- Extension for Emoji Detection ---
+extension Character {
+    var isEmoji: Bool {
+        guard let scalar = unicodeScalars.first else { return false }
+        return scalar.properties.isEmoji && (scalar.value > 0x2388 || unicodeScalars.count > 1)
+    }
+}
+
 enum ItemType: String, Codable, CaseIterable, Identifiable {
     case paycheck = "Paycheck"
     case bill = "Bill"
     case subscription = "Subscription"
     
     var id: String { rawValue }
+    
+    var isIncome: Bool {
+        self == .paycheck
+    }
 }
 
 enum RepeatInterval: String, Codable, CaseIterable, Identifiable {
@@ -65,10 +77,17 @@ final class PayCalItem {
         set { reminderLeadTimeRaw = newValue.rawValue }
     }
     
-    // Helper to determine if iconName is an emoji vs SF Symbol
     var isEmoji: Bool {
         guard let first = iconName.first else { return false }
         return first.isEmoji && !first.isASCII
+    }
+    
+    // Calculates exact date/time for notification trigger
+    var reminderDate: Date {
+        let calendar = Calendar.current
+        let baseDate = calendar.date(byAdding: .day, value: -reminderLeadTime.daysBefore, to: dueDate) ?? dueDate
+        let timeComponents = calendar.dateComponents([.hour, .minute], from: reminderTime)
+        return calendar.date(bySettingHour: timeComponents.hour ?? 9, minute: timeComponents.minute ?? 0, second: 0, of: baseDate) ?? baseDate
     }
     
     init(
@@ -95,7 +114,6 @@ final class PayCalItem {
         self.iconName = iconName
     }
     
-    // SF Symbols preset list
     static let availableIcons = [
         "dollarsign.circle.fill",
         "creditcard.fill",
@@ -113,7 +131,6 @@ final class PayCalItem {
         "doc.text.fill"
     ]
     
-    // Quick-select preset emojis
     static let availableEmojis = [
         "💰", "💸", "💳", "💵", "🏠", "⚡️", "📱", "🚗", "🛒", "🍔",
         "🍿", "🏥", "🎓", "✈️", "🏋️‍♂️", "🎮", "🐾", "🎁", "💧", "🛡️"

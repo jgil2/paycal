@@ -1,69 +1,47 @@
 import Foundation
 import UserNotifications
-import SwiftData
 
 final class NotificationManager {
     static let shared = NotificationManager()
     private init() {}
-
+    
     func requestAuthorization() {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
-            if let error = error {
-                print("Notification permission error: \(error)")
-            }
-        }
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
     }
-
-    struct PendingNotificationCandidate {
-        let item: PayCalItem
-        let dueDate: Date
-        let triggerDate: Date
-    }
-
-    /// Rebuilds all scheduled notifications: takes next 2 occurrences per item, sorts, and caps to soonest 64
-    func rescheduleAllNotifications(context: ModelContext) {
-        UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
-
-        let descriptor = FetchDescriptor<PayCalItem>()
-        guard let items = try? context.fetch(descriptor) else { return }
-
+    
+    func scheduleNotifications(for items: [PayCalItem]) async {
+        let center = UNUserNotificationCenter.current()
+        center.removeAllPendingNotificationRequests()
+        
+        var allPending: [(date: Date, item: PayCalItem)] = []
         let now = Date()
-        var candidates: [PendingNotificationCandidate] = []
-
-        // Gather candidates for next 2 occurrences per item
+        
         for item in items {
-            let occurrences = item.nextOccurrences(limit: 2, relativeTo: now)
-            for occDate in occurrences {
-                let trigDate = item.reminderDate(for: occDate)
-                if trigDate > now {
-                    candidates.append(PendingNotificationCandidate(item: item, dueDate: occDate, triggerDate: trigDate))
+            let upcomingDates = item.nextOccurrences(count: 2, from: now)
+            for date in upcomingDates {
+                let calendar = Calendar.current
+                let baseDate = calendar.date(byAdding: .day, value: -item.reminderLeadTime.daysBefore, to: date) ?? date
+                let timeComponents = calendar.dateComponents([.hour, .minute], from: item.reminderTime)
+                if let remDate = calendar.date(bySettingHour: timeComponents.hour ?? 9, minute: timeComponents.minute ?? 0, second: 0, of: baseDate), remDate > now {
+                    allPending.append((remDate, item))
                 }
             }
         }
-
-        // Sort by trigger date ascending and enforce iOS maximum 64 limit
-        candidates.sort { $0.triggerDate < $1.triggerDate }
-        let scheduledCandidates = Array(candidates.prefix(64))
-
-        for candidate in scheduledCandidates {
-            scheduleNotification(for: candidate)
-        }
-    }
-
-    private func scheduleNotification(for candidate: PendingNotificationCandidate) {
-        let content = UNMutableNotificationContent()
-        let formattedAmount = String(format: "$%.2f", candidate.item.amount)
         
-        content.title = "\(candidate.item.type.rawValue): \(candidate.item.name)"
-        content.body = "Amount: \(formattedAmount) is due on \(candidate.dueDate.formatted(date: .abbreviated, time: .omitted))."
-        content.sound = .default
-
-        let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: candidate.triggerDate)
-        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
-
-        let requestID = "\(candidate.item.id.uuidString)-\(candidate.dueDate.timeIntervalSince1970)"
-        let request = UNNotificationRequest(identifier: requestID, content: content, trigger: trigger)
-
-        UNUserNotificationCenter.current().add(request)
+        // Capped at iOS 64 notification limit
+        let sorted = allPending.sorted { $0.date < $1.date }.prefix(64)
+        
+        for entry in sorted {
+            let content = UNMutableNotificationContent()
+            content.title = entry.item.name
+            content.body = "Amount: $\(String(format: "%.2f", entry.item.amount)) is due."
+            content.sound = .default
+            
+            let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: entry.date)
+            let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+            let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: trigger)
+            
+            try? await center.add(request)
+        }
     }
 }
