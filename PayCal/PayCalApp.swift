@@ -3,54 +3,42 @@ import SwiftData
 
 @main
 struct PayCalApp: App {
-    // Shared SwiftData model container for PayCalItem
-    var sharedModelContainer: ModelContainer = {
-        let schema = Schema([
-            PayCalItem.self,
-        ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-
-        do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
-        } catch {
-            fatalError("Could not create ModelContainer: \(error)")
-        }
-    }()
-
     @Environment(\.scenePhase) private var scenePhase
+    
+    // Create the shared ModelContainer manually so we can access it during App lifecycle events
+    let container: ModelContainer
+    
+    init() {
+        do {
+            container = try ModelContainer(for: PayCalItem.self)
+        } catch {
+            fatalError("Failed to create ModelContainer for PayCalItem: \(error.localizedDescription)")
+        }
+        
+        // Request notification permissions on first launch
+        NotificationManager.shared.requestAuthorization()
+    }
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .onAppear {
-                    // Request notification permission and refresh schedule on launch
-                    NotificationManager.shared.requestAuthorization()
-                    NotificationManager.shared.rescheduleAllNotifications(context: sharedModelContainer.mainContext)
-                }
+            HomeView()
         }
-        .modelContainer(sharedModelContainer)
-        .onChange(of: scenePhase) { oldPhase, newPhase in
-            if newPhase == .active {
-                // Refresh local notifications whenever app returns to foreground
-                NotificationManager.shared.rescheduleAllNotifications(context: sharedModelContainer.mainContext)
+        .modelContainer(container)
+        // Fixed: Using the 1-argument closure for scenePhase to satisfy the compiler
+        .onChange(of: scenePhase) { phase in
+            if phase == .active {
+                refreshNotifications()
             }
         }
     }
-}
-
-struct ContentView: View {
-    var body: some View {
-        TabView {
-            HomeView()
-                .tabItem {
-                    Label("Upcoming", systemImage: "calendar.badge.clock")
-                }
-            
-            CalendarView()
-                .tabItem {
-                    Label("Calendar", systemImage: "calendar")
-                }
+    
+    // Fixed: Fetch items directly from the container context and pass them to the NotificationManager
+    private func refreshNotifications() {
+        Task {
+            let descriptor = FetchDescriptor<PayCalItem>()
+            if let items = try? container.mainContext.fetch(descriptor) {
+                await NotificationManager.shared.scheduleNotifications(for: items)
+            }
         }
-        .accentColor(.emerald)
     }
 }
