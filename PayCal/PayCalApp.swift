@@ -21,10 +21,19 @@ struct PayCalApp: App {
 
     var body: some Scene {
         WindowGroup {
-            HomeView()
+            TabView {
+                HomeView()
+                    .tabItem {
+                        Label("Home", systemImage: "list.bullet")
+                    }
+                
+                CalendarView()
+                    .tabItem {
+                        Label("Calendar", systemImage: "calendar")
+                    }
+            }
         }
         .modelContainer(container)
-        // Fixed: Using the 1-argument closure for scenePhase to satisfy the compiler
         .onChange(of: scenePhase) { phase in
             if phase == .active {
                 refreshNotifications()
